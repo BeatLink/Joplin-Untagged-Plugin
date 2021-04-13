@@ -1,17 +1,39 @@
 import joplin from 'api';
 
-async function createUntaggedTag(tagID: string, tagName: string) {
 
-	var found = false;
+async function getAllNotes() {
+	let notesObject = await joplin.data.get(['notes'])
+	return notesObject.items;
+}
+
+async function getAllTags() {
 	let tagsObject = await joplin.data.get(['tags'])
-	for (var tag of tagsObject.items){
+	return tagsObject.items;
+}
+
+async function getTagsForNote(noteID: string){
+	let tagsObject = await joplin.data.get(['notes', noteID, 'tags']);
+	return tagsObject.items;
+}
+
+async function addTagToNote(tagID: string, noteID: string){
+	await joplin.data.post(['tags', tagID, 'notes'], null, {id: noteID});
+}
+
+async function createTag(tagID: string, tagName: string){
+	await joplin.data.post(['tags'], null, {id:tagID, title: tagName});
+}
+
+async function createUntaggedTag(tagID: string, tagName: string) {
+	var found = false;
+	for (var tag of await getAllTags()){
         if(tag.id == tagID){
             found = true;
             break;
         }	
 	}	
     if(!found){
-		await joplin.data.post(['tags'], null, {id:tagID, title: tagName})
+		createTag(tagID, tagName)
     }
 }
 
@@ -19,7 +41,8 @@ async function createUntaggedTag(tagID: string, tagName: string) {
 
 joplin.plugins.register({
 	onStart: async function() {
-		console.info('Test plugin started!');
+
+		console.info('Untagged plugin started!');
 
 
 		//todo save these to settings
@@ -28,21 +51,16 @@ joplin.plugins.register({
 
 		createUntaggedTag(tagID, tagName);
 		
-		console.info(await joplin.data.get(['notes']))
-		console.info(await joplin.data.get(['tags']))
+		console.info(await getAllNotes())
+		console.info(await getAllTags())
 
-		//get all notes
-		let notesObject = await joplin.data.get(['notes']) 
-		for (var note of notesObject.items) {										//for note in note
-			let tagsObject = await joplin.data.get(['notes', note.id, 'tags']);
-			if (tagsObject.items.length == 0) {
-				await joplin.data.post(['tags', tagID, 'notes'], null, {id: note.id});
+		for (var note of await getAllNotes()) {					 	// For each note in all notes
+			if ((await getTagsForNote(note.id)).length == 0) {		// 		If note has no tags
+				addTagToNote(tagID, note.id);						//		Add untagged tag to note
 			}
-			
 		}
 
 		console.info(await joplin.data.get(['notes']))
-		console.info(await joplin.data.get(['tags']))
 
 		//for note in notes with untagged tag
 			//if note has other tag
