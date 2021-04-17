@@ -26,6 +26,11 @@
 import joplin from 'api';
 import { SettingItemType } from 'api/types';
 
+// Global Constants -------------------------------------------------------------------------------------------------------------
+
+const untaggedTagID = "00000000000000000000000000000000";
+const untaggedDefaultTagTitle = ">> untagged <<";
+
 // Plugin Registration ----------------------------------------------------------------------------------------------------------
 
 joplin.plugins.register({
@@ -61,22 +66,6 @@ async function configureSettings(){
 		name: "Untagged"
 	})
 
-	await joplin.settings.registerSetting("untaggedTagTitle", {
-		label: "Assign untagged notes and to-dos to this tag",
-		value: 'Unsorted',
-		type: SettingItemType.String,
-		public: true,
-		section: 'untaggedSettings',
-	})
-
-	await joplin.settings.registerSetting("untaggedLastTagTitle", {
-		label: "Saves the last tag for deletion purposes",
-		value: '',
-		type: SettingItemType.String,
-		public: false,
-		section: 'untaggedSettings',
-	})
-
 	await joplin.settings.registerSetting("untaggedEnableUntagging", {
 		label: "Remove Untagged tag from notes if they have another tag",
 		value: true,
@@ -84,10 +73,6 @@ async function configureSettings(){
 		public: true,
 		section: 'untaggedSettings',
 	})
-
-	//Connect handler for tag title changes
-	await joplin.settings.onChange(onTagSettingChanged)
-	await onTagSettingChanged("INIT");
 }
 
 // tag Notes Without Tags -------------------------------------------------------------------------------------------------------
@@ -95,13 +80,13 @@ async function configureSettings(){
 async function tagNotesWithoutTags(){
 	// Finds notes without tags and tags them with the "Untagged" tag
 	var notesWithoutTags = (await joplin.data.get(['search'], {'query': '-tag:*'})).items
-	for (var note of notesWithoutTags) {			
-		var tagName = await joplin.settings.value('untaggedTagTitle');
-		var tag = await getOrCreateTag(tagName);
+	for (var note of notesWithoutTags) {
+		var untaggedTag = await getOrCreateTag();
 		try {
-			await joplin.data.post(['tags', tag.id, 'notes'], null, {id: note.id});
+			await joplin.data.post(['tags', untaggedTag.id, 'notes'], null, {id: note.id});
 		} catch(err) {
 			console.error(err);
+			console.log("Untagged tag not found. Will create on next attempted retrieval")
 		}
 	}
 }
@@ -112,59 +97,46 @@ async function untagNotesWithTags(){
 
 	var enableUntagging = await joplin.settings.value('untaggedEnableUntagging')
 	if (enableUntagging){
-		var tagName = await joplin.settings.value('untaggedTagTitle');
-		var tag = await getOrCreateTag(tagName);
-		var untaggedNotes = (await joplin.data.get(['search'], {'query': 'tag:' + tagName})).items
-		for (var note of untaggedNotes){
+		var untaggedTag = await getOrCreateTag();
+		var taggedNotes = (await joplin.data.get(['tags', untaggedTag.id, 'notes'])).items
+		for (var note of taggedNotes){
 			var noteTags = (await joplin.data.get(['notes', note.id, 'tags'])).items
 			if (noteTags.length > 1){
-				await joplin.data.delete(['tags', tag.id, 'notes', note.id]);
+				await joplin.data.delete(['tags', untaggedTag.id, 'notes', note.id]);
 			}
 		}		
 	}
 }
 
-// On Tag Settings Changed ------------------------------------------------------------------------------------------------------
-
-async function onTagSettingChanged(event){
-	//This function deletes the last "Untagged" tag if the user has changed the tag to a new one through settings
-	if (event == "INIT"){
-		await updateLastTag();
-	} else if (event.keys.includes("untaggedTagTitle"))  {
-		var lastTag = await getTag(await joplin.settings.value('untaggedLastTagTitle'))
-		if (lastTag){
-			await joplin.data.delete(['tags', lastTag.id])
-		}
-		await updateLastTag()
-	}
-}
-
-// Update Last Tag --------------------------------------------------------------------------------------------------------------
-
-async function updateLastTag(){
-	//Sets the last tag setting to the current tag title. Used to track the last untagged tag title for cleanup purposes
-	var currentTagTitle = await joplin.settings.value('untaggedTagTitle');
-	await joplin.settings.setValue('untaggedLastTagTitle', currentTagTitle)
-}
-
 
 // Get or Create Tag ------------------------------------------------------------------------------------------------------------
 
-async function getOrCreateTag(tagName: string) {
+async function getOrCreateTag() {
 	//Searches for and returns tag with matching name. If not found, a new tag is created
-	var foundTag = await getTag(tagName);
-	return foundTag ? foundTag : await joplin.data.post(['tags'], null, {title: tagName});
-}
-
-// Get Tag ----------------------------------------------------------------------------------------------------------------------
-
-async function getTag(tagName: string){
 	var allTags = (await joplin.data.get(['tags'])).items
 	for (var tag of allTags){
-        if(tag.title == tagName.toLowerCase()){ 
+        if(tag.id == untaggedTagID){ 
 			return tag;
 		}
-	}	
+	}
+
+	// This while loop tries to create a new tag with a random name until a unique name is found, at which point the function returns
+	try {
+		var newTag = await joplin.data.post(['tags'], null, {id: untaggedTagID, title: untaggedDefaultTagTitle});
+		return newTag;
+	} catch (err) {
+		while (true){
+			var randomString = Math.random().toString().substr(2, 5)
+			var backuptitle = ">> " + randomString + ' ' + untaggedDefaultTagTitle + ' ' + randomString + " << ";
+			try {
+				var newTag = await joplin.data.post(['tags'], null, {id: untaggedTagID, title: backuptitle});
+				return newTag;
+			} catch {
+				continue;
+			}
+		}
+	}
 }
+
 
 // End of Code ------------------------------------------------------------------------------------------------------------------
