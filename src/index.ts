@@ -28,7 +28,7 @@ import { SettingItemType } from 'api/types';
 
 // Global Constants -------------------------------------------------------------------------------------------------------------
 
-const untaggedTagID = "00000000000000000000000000000000";
+const untaggedTagID = "756e7461676765640000000000000000";
 const untaggedDefaultTagTitle = ">> untagged <<";
 
 // Plugin Registration ----------------------------------------------------------------------------------------------------------

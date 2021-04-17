@@ -1,24 +1,18 @@
-# Joplin Plugin
+# Untagged
 
-This is a template to create a new Joplin plugin.
+## Overview
+This Joplin plugin finds notes and todos without a tag and gives them a special tag. This tag defaults to the title " >> untagged <<" but can be renamed to what the user wants (eg. "Untagged", "Uncategorized", "No Tags", "Tag Me", "To Be Tagged", ect)
 
-The main two files you will want to look at are:
+The plugin will automatically removed the untagged tag if another tag is added to that note or to-do. This option can be disabled in the plugin's settings.
 
-- `/src/index.ts`, which contains the entry point for the plugin source code.
-- `/src/manifest.json`, which is the plugin manifest. It contains information such as the plugin a name, version, etc.
+The plugin will automatically recreate the tag if it is accidentally deleted. 
 
-## Building the plugin
+## Technical Details
 
-The plugin is built using Webpack, which creates the compiled code in `/dist`. A JPL archive will also be created at the root, which can use to distribute the plugin.
+The plugin uses a special tag id of "756e7461676765640000000000000000" which is the word "untagged" converted to hexadecimal, with the addition of padded zeros. The plugin will 
 
-To build the plugin, simply run `npm run dist`.
+### Download and Installation
+The plugin is published on NPM here https://www.npmjs.com/package/joplin-plugin-untagged and is also published to Jolpin's official plugin repository, so you can download it by searching in jolpin's plugin menu for "Untagged"
 
-The project is setup to use TypeScript, although you can change the configuration to use plain JavaScript.
-
-## Updating the plugin framework
-
-To update the plugin framework, run `npm run update`.
-
-In general this command tries to do the right thing - in particular it's going to merge the changes in package.json and .gitignore instead of overwriting. It will also leave "/src" as well as README.md untouched.
-
-The file that may cause problem is "webpack.config.js" because it's going to be overwritten. For that reason, if you want to change it, consider creating a separate JavaScript file and include it in webpack.config.js. That way, when you update, you only have to restore the line that include your file.
+### Building The Plugin
+For more detailed instructions on building this plugin, refer to [Generator_DOC.md](./Generator_DOC.md) in the source repository.
