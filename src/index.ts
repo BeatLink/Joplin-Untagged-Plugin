@@ -83,23 +83,20 @@ async function configureSettings(){
 		section: 'untaggedSettings',
 	})
 
-	const currentTagTitle = await joplin.settings.value("untaggedTagTitle");
-	await joplin.settings.setValue("untaggedLastTagTitle", currentTagTitle);
+	await joplin.settings.setValue("untaggedLastTagTitle",  await joplin.settings.value("untaggedTagTitle"));	
 	await joplin.settings.onChange(onTagTitleChanged);
 }
 
 // Tag Title Changed Handler ----------------------------------------------------------------------------------------------------
 
 async function onTagTitleChanged(event){
+
 	if (event.keys.includes("untaggedTagTitle")){
-		const oldTagName = await joplin.settings.value("untaggedLastTagTitle");
-		console.log (oldTagName)
-		const oldTag = await getTag(oldTagName)
+		const oldTag = await getTag(await joplin.settings.value("untaggedLastTagTitle"))
 		if (oldTag) {
 			await joplin.data.delete(['tags', oldTag.id])
 		}
-		const currentTagTitle = await joplin.settings.value("untaggedTagTitle");
-		await joplin.settings.setValue("untaggedLastTagTitle", currentTagTitle);	
+		await joplin.settings.setValue("untaggedLastTagTitle",  await joplin.settings.value("untaggedTagTitle"));	
 	}
 }
 
