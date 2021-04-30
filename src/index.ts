@@ -4,17 +4,6 @@
  * 																																*
  * This Plugin is designed to find notes/todos without tags and then tag them with a special "Untagged".						*
  * 																																*
- * The table of contents is shown below:																						*
- * 	- Imports																													*
- *  - Plugin Registration																										*
- *  - Main Function																												*
- *  - Log Startup																												*
- * 	- Configure Settings																										*
- *	- Tag Title Changed Handler																									*
- * 	- Tag Notes Without Tags																									*
- * 	- Untag Notes with Tags																										*
- * 	- Get or Create Tag																											*
- * 	- Get Tag																													*																									            *
  *******************************************************************************************************************************/
 
 
@@ -39,6 +28,7 @@ async function main(){
 	while(true){
 		await tagNotesWithoutTags();
 		await untagNotesWithTags();
+		await sleep(1000);
 	}
 }
 
@@ -51,14 +41,11 @@ async function logStartup(){
 // Configure Settings -----------------------------------------------------------------------------------------------------------
 
 async function configureSettings(){
-	//This function initializes all settings related
-
 	await joplin.settings.registerSection("untaggedSettings", {
 		label: "Untagged",
 		iconName: 'fa fa-tag',
 		name: "Untagged"
 	})
-
 	await joplin.settings.registerSetting("untaggedLastTagTitle", {
 		label: "The last tag name before settings change (used to delete old tag names)",
 		value: "",
@@ -66,7 +53,6 @@ async function configureSettings(){
 		public: false,
 		section: 'untaggedSettings',
 	})
-
 	await joplin.settings.registerSetting("untaggedTagTitle", {
 		label: "Notes without tags will be given this tag",
 		value: ">> untagged <<",
@@ -74,7 +60,6 @@ async function configureSettings(){
 		public: true,
 		section: 'untaggedSettings',
 	})
-
 	await joplin.settings.registerSetting("untaggedEnableUntagging", {
 		label: "Remove tag from notes if they have another tag",
 		value: true,
@@ -82,76 +67,121 @@ async function configureSettings(){
 		public: true,
 		section: 'untaggedSettings',
 	})
-
 	await joplin.settings.setValue("untaggedLastTagTitle",  await joplin.settings.value("untaggedTagTitle"));	
 	await joplin.settings.onChange(onTagTitleChanged);
-}
-
-// Tag Title Changed Handler ----------------------------------------------------------------------------------------------------
-
-async function onTagTitleChanged(event){
-
-	if (event.keys.includes("untaggedTagTitle")){
-		const oldTag = await getTag(await joplin.settings.value("untaggedLastTagTitle"))
-		if (oldTag) {
-			await joplin.data.delete(['tags', oldTag.id])
-		}
-		await joplin.settings.setValue("untaggedLastTagTitle",  await joplin.settings.value("untaggedTagTitle"));	
-	}
 }
 
 // tag Notes Without Tags -------------------------------------------------------------------------------------------------------
 
 async function tagNotesWithoutTags(){
-	// Finds notes without tags and tags them with the "Untagged" tag
-	var notesWithoutTags = (await joplin.data.get(['search'], {'query': '-tag:*'})).items
+	var notesWithoutTags = await getNotesWithoutAnyTag();	
 	for (var note of notesWithoutTags) {
-		var untaggedTag = await getOrCreateTag();
-		try {
-			await joplin.data.post(['tags', untaggedTag.id, 'notes'], null, {id: note.id});
-		} catch(err) {
-			console.error(err);
-			console.log("Untagged tag not found. Will create on next attempted retrieval")
-		}
+		var untaggedTag = await getOrCreateUntaggedTag();
+		await addTagToNote(untaggedTag.id, note.id)
 	}
 }
 
 // Untag Notes With Tags --------------------------------------------------------------------------------------------------------
 
 async function untagNotesWithTags(){
-	//Checks notes tagged with "Untagged" that have been given another tag and removes the "Untagged" tag
-
 	var enableUntagging = await joplin.settings.value('untaggedEnableUntagging')
 	if (enableUntagging){
-		var untaggedTag = await getOrCreateTag();
-		var taggedNotes = (await joplin.data.get(['tags', untaggedTag.id, 'notes'])).items
+		var untaggedTag = await getOrCreateUntaggedTag();
+		var taggedNotes = await getNotesWithTag(untaggedTag.id)
 		for (var note of taggedNotes){
-			var noteTags = (await joplin.data.get(['notes', note.id, 'tags'])).items
+			var noteTags = await getTagsForNote(note.id)
 			if (noteTags.length > 1){
-				await joplin.data.delete(['tags', untaggedTag.id, 'notes', note.id]);
+				await deleteTagFromNote(untaggedTag.id, note.id)
 			}
 		}		
 	}
 }
 
-// Get or Create Tag ------------------------------------------------------------------------------------------------------------
+// Tag Title Changed Handler ----------------------------------------------------------------------------------------------------
 
-async function getOrCreateTag() {
-	//Searches for and returns tag with matching name. If not found, a new tag is created
+async function onTagTitleChanged(event){
+	if (event.keys.includes("untaggedTagTitle")){
+		const lastTagTitle = await joplin.settings.value("untaggedLastTagTitle")
+		const lastTag = await getTag(lastTagTitle)
+		if (lastTag) {
+			await deleteTag(lastTag.id)
+		}
+		const newTagTitle = await joplin.settings.value("untaggedTagTitle")
+		await joplin.settings.setValue("untaggedLastTagTitle",  newTagTitle);	
+	}
+}
+
+// Get or Create Untagged Tag ---------------------------------------------------------------------------------------------------
+
+async function getOrCreateUntaggedTag() {
 	const tagTitle = await joplin.settings.value("untaggedTagTitle")
 	const existingTag = await getTag(tagTitle)
 	return existingTag ? existingTag : await joplin.data.post(['tags'], null, {title: tagTitle.toLowerCase()});
 }
 
+
+// Get All Tags -----------------------------------------------------------------------------------------------------------------
+
+async function getAllTags(){
+	const allTagsObject = await joplin.data.get(['tags'])
+	return allTagsObject.items
+}
+
 // Get Tag ----------------------------------------------------------------------------------------------------------------------
 
 async function getTag(tagName: string){
-	var allTags = (await joplin.data.get(['tags'])).items
+	const lowerCaseTagName = tagName.toLowerCase();
+	const allTags = await getAllTags();
 	for (var tag of allTags){
-        if(tag.title == tagName.toLowerCase()){ 
+        if(tag.title == lowerCaseTagName){ 
 			return tag;
 		}
 	}
+}
+
+// Delete Tag -------------------------------------------------------------------------------------------------------------------
+
+async function deleteTag(tagID){
+	return await joplin.data.delete(['tags', tagID])
+}
+
+// Get Notes Without Any Tag ----------------------------------------------------------------------------------------------------
+
+async function getNotesWithoutAnyTag(){
+	const notesWithoutTagsObject = await joplin.data.get(['search'], {'query': '-tag:*'})
+	return notesWithoutTagsObject.items
+}
+
+// Get Notes With Tag -----------------------------------------------------------------------------------------------------------
+
+async function getNotesWithTag(tagID){
+	const notesWithTagObject = await joplin.data.get(['tags', tagID, 'notes'])
+	return notesWithTagObject.items
+}
+
+// Get Tags For Note ------------------------------------------------------------------------------------------------------------
+
+async function getTagsForNote(noteID){
+	const noteTagsObject = await joplin.data.get(['notes', noteID, 'tags'])
+	return noteTagsObject.items
+}
+
+// Add Tag to Note --------------------------------------------------------------------------------------------------------------
+
+async function addTagToNote(tagID, noteID){
+	await joplin.data.post(['tags', tagID, 'notes'], null, {id: noteID});
+}
+
+// Delete Tag From Note ---------------------------------------------------------------------------------------------------------
+
+async function deleteTagFromNote(tagID, noteID){
+	return await joplin.data.delete(['tags', tagID, 'notes', noteID])
+}
+
+// Sleep ------------------------------------------------------------------------------------------------------------------------
+
+async function sleep(ms: number) {
+    return new Promise( resolve => setTimeout(resolve, ms) );
 }
 
 // End of Code ------------------------------------------------------------------------------------------------------------------
