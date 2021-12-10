@@ -1,4 +1,3 @@
-
 /****************************************************************************************************************************************************
  * Name: Untagged																																	*
  * 																																					*
@@ -86,10 +85,6 @@ async function updateAllNotes(){
 				await untagNote(untaggedTag.id, note.id)
 			}
 		}		
-	}
-}
-
-
 
 /** updateNote **************************************************************************************************************************************
  * Tags the given note if it has no tag. If it has more than one tag, it untags the note															*
