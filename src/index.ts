@@ -92,15 +92,10 @@ async function updateAllNotes(){
 async function updateNote(noteID){
 	const untaggedTagID = (await getTag()).id;
 	const tagCount = await getTagCount(noteID)
-	console.log(noteID)
-	console.log(untaggedTagID)
-	console.log(tagCount)
 	if (tagCount < 1){
-		console.log('tagging')
 		await tagNote(untaggedTagID, noteID)
 	}
 	else if (await joplin.settings.value('untaggedEnableUntagging') && tagCount > 1) {
-		console.log('untagging')
 		await untagNote(untaggedTagID, noteID)
 	}
 }
