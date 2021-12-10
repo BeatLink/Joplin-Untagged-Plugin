@@ -62,7 +62,12 @@ async function configureMenu() {
 		iconName: 'fas fa-tag',
 		execute: updateAllNotes,
 	});
-	await joplin.views.menuItems.create('updateUntaggedNotesMenu', 'updateUntaggedNotes', MenuItemLocation.Tools);
+	await joplin.views.menus.create(
+        'untaggedMenu', "Untagged", 
+        [
+			{label: "updateUntaggedNotes", commandName: 'updateUntaggedNotes'}],
+        MenuItemLocation.Tools
+    )
 }
 
 /** updateAllNotes **********************************************************************************************************************************
