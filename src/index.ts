@@ -89,22 +89,7 @@ async function updateAllNotes(){
 	}
 }
 
-/** connectNoteChangedCallback **********************************************************************************************************************
- * Setups a polling loop that runs every second and calls the given callback for any changed notes													*
- ***************************************************************************************************************************************************/
-async function connectNoteChangedCallback(callback){
-	var cursor = null
-	async function processChanges(){
-		do {
-			var response = await joplin.data.get(['events'], { fields: ['id', 'item_id', 'type'], cursor: cursor})
-			for (var item of response.items) { 
-				await callback(item.item_id) 
-			}
-			cursor = response.cursor
-		} while (response.has_more)    
-	}
-	setInterval(await processChanges, 1000)
-}
+
 
 /** updateNote **************************************************************************************************************************************
  * Tags the given note if it has no tag. If it has more than one tag, it untags the note															*
@@ -158,6 +143,23 @@ async function getTag(){
 		}
 	}
 	return await joplin.data.post(['tags'], null, {title: tagTitle.toLowerCase()});
+}
+
+/** connectNoteChangedCallback **********************************************************************************************************************
+ * Setups a polling loop that runs every second and calls the given callback for any changed notes													*
+ ***************************************************************************************************************************************************/
+ async function connectNoteChangedCallback(callback){
+	var cursor = null
+	async function processChanges(){
+		do {
+			var response = await joplin.data.get(['events'], { fields: ['id', 'item_id', 'type'], cursor: cursor})
+			for (var item of response.items) { 
+				await callback(item.item_id) 
+			}
+			cursor = response.cursor
+		} while (response.has_more)    
+	}
+	setInterval(await processChanges, 1000)
 }
 
 /** End of Code ***********************************************************************************************************************************/
