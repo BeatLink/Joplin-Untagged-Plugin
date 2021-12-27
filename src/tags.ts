@@ -1,10 +1,23 @@
 import joplin from "api";
 
+export async function noteContainsTag(noteID, tagID) {
+	var tags = await getTags(noteID)
+	return tags.some((tag)=> tag.id == tagID)
+}
+
 /** getTags *****************************************************************************************************************************************
  * Gets list of tags for a given note ID 																										    *
  ***************************************************************************************************************************************************/
 export async function getTags(noteID){
 	return (await joplin.data.get(['notes', noteID, 'tags'])).items
+}
+
+/** getOrCreateTag ******************************************************************************************************************************************
+ * Get or Create Tag from the given tag title 																														*
+ ***************************************************************************************************************************************************/
+ export async function getOrCreateTag(tagTitle){
+	const searchResult = (await joplin.data.get(['search'], {'query': `${tagTitle.toLowerCase()}`, 'type': "tag"})).items
+	return searchResult.length > 0 ? searchResult[0] :  await joplin.data.post(['tags'], null, {title: tagTitle.toLowerCase()});
 }
 
 /** tagNote *****************************************************************************************************************************************
@@ -19,13 +32,5 @@ export async function tagNote(tagID, noteID){
  ***************************************************************************************************************************************************/ 
 export async function untagNote(tagID, noteID){
 	return await joplin.data.delete(['tags', tagID, 'notes', noteID])
-}
-
-/** getOrCreateTag ******************************************************************************************************************************************
- * Get or Create Tag from the given tag title 																														*
- ***************************************************************************************************************************************************/
-export async function getOrCreateTag(tagTitle){
-	const searchResult = (await joplin.data.get(['search'], {'query': `${tagTitle.toLowerCase()}`, 'type': "tag"})).items
-	return searchResult.length > 0 ? searchResult[0] :  await joplin.data.post(['tags'], null, {title: tagTitle.toLowerCase()});
 }
 
