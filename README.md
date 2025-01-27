@@ -1,5 +1,7 @@
 # Untagged
 
+NOTICE: This repository is now archived as I've moved to Trilium. If you wish to continue maintaining this, send me an email
+
 ## Overview
 This Joplin plugin finds notes and todos without a tag and gives them a special tag. 
 
